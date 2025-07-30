@@ -1,0 +1,13 @@
+{
+    "LogLevel": "debug",
+    "Storage": {
+        "Type": "b2",
+        "Config": {
+            "BucketName": "sayana-pages",
+            "Region": "eu-central-003",
+            "Prefix": "",
+            "KeyID": "${B2_KEY_ID}",
+            "ApplicationKey": "${B2_APPLICATION_KEY}"
+        }
+    }
+}
