@@ -59,19 +59,11 @@ func (sc *B2StorageClient) Scan() ([]string, error) {
 			continue
 		}
 
-		name := obj.Name()
+		//if !strings.Contains(attrs.ContentType, "text/metadata") {
+		//	continue
+		//}
 
-		nameParts := strings.Split(name, ".")
-		if len(nameParts) < 2 {
-			continue
-		}
-
-		ext := strings.ToLower(nameParts[len(nameParts)-1])
-		if ext != "md" {
-			continue
-		}
-
-		filePaths = append(filePaths, strings.TrimPrefix(name, sc.prefix))
+		filePaths = append(filePaths, strings.TrimPrefix(obj.Name(), sc.prefix))
 	}
 
 	if err := iter.Err(); err != nil {
@@ -104,18 +96,29 @@ func (sc *B2StorageClient) WriteMetadata(path string, metadata *frontmatter.Meta
 		return fmt.Errorf("error getting attributes of an object: %w", err)
 	}
 
-	attrs := &b2.Attrs{Info: map[string]string{
-		"title":                     metadata.Title,
-		"short-description":         metadata.ShortDescription,
-		"action-date":               metadata.ActionDate,
-		"published-time":            metadata.PublishedTime.Format(time.RFC3339),
-		"thumbnail":                 metadata.Thumbnail,
-		"tags":                      strings.Join(metadata.Tags, ","),
-		"metadata-last-update-sha1": oldAttrs.SHA1,
-	}}
+	attrs := &b2.Attrs{
+		ContentType: "text/markdown; charset=utf-8",
+		Info: map[string]string{
+			"title":                     metadata.Title,
+			"short-description":         metadata.ShortDescription,
+			"action-date":               metadata.ActionDate,
+			"published-time":            metadata.PublishedTime.Format(time.RFC3339),
+			"thumbnail":                 metadata.Thumbnail,
+			"tags":                      strings.Join(metadata.Tags, ","),
+			"metadata-last-update-sha1": oldAttrs.SHA1,
+		}}
+
+	reader := obj.NewReader(context.Background())
+	content := make([]byte, oldAttrs.Size)
+	if _, err = reader.Read(content); err != nil {
+		return fmt.Errorf("failed to read an object back for writing (required for attribute setting): %w", err)
+	}
 
 	writer := obj.NewWriter(context.Background(), b2.WithAttrsOption(attrs))
-	writer.Close()
+	defer writer.Close()
+	if _, err := writer.Write(content); err != nil {
+		return fmt.Errorf("failed to write an object back after attribute settings: %w", err)
+	}
 
 	return nil
 }
