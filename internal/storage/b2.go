@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,6 +97,24 @@ func (sc *B2StorageClient) WriteMetadata(path string, metadata *frontmatter.Meta
 		return fmt.Errorf("error getting attributes of an object: %w", err)
 	}
 
+	geolocationParts := strings.Split(metadata.Geolocation, " ")
+	if (len(geolocationParts) == 1 && geolocationParts[0] != "") || len(geolocationParts) >= 4 {
+		return fmt.Errorf("invalid geolocation format, expecting '{x} {y} [areaError]' or an empty string")
+	}
+	if len(geolocationParts) >= 2 {
+		if _, err := strconv.ParseFloat(geolocationParts[0], 64); err != nil {
+			return fmt.Errorf("invalid geolocation parameter, expected float for X: %w", err)
+		}
+		if _, err := strconv.ParseFloat(geolocationParts[1], 64); err != nil {
+			return fmt.Errorf("invalid geolocation parameter, expected float for Y: %w", err)
+		}
+	}
+	if len(geolocationParts) == 3 {
+		if _, err := strconv.ParseFloat(geolocationParts[2], 64); err != nil {
+			return fmt.Errorf("invalid geolocation parameter, expected float for area error: %w", err)
+		}
+	}
+
 	attrs := &b2.Attrs{
 		ContentType: "text/markdown; charset=utf-8",
 		Info: map[string]string{
@@ -105,6 +124,7 @@ func (sc *B2StorageClient) WriteMetadata(path string, metadata *frontmatter.Meta
 			"published-time":            metadata.PublishedTime.Format(time.RFC3339),
 			"thumbnail":                 metadata.Thumbnail,
 			"tags":                      strings.Join(metadata.Tags, ","),
+			"geolocation":               metadata.Geolocation,
 			"metadata-last-update-sha1": oldAttrs.SHA1,
 		}}
 

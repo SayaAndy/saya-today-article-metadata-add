@@ -15,6 +15,7 @@ type Metadata struct {
 	PublishedTime    time.Time `yaml:"publishedTime"`
 	Thumbnail        string    `yaml:"thumbnail"`
 	Tags             []string  `yaml:"tags"`
+	Geolocation      string    `yaml:"geolocation"`
 }
 
 func ParseFrontmatter(content []byte) (metadata *Metadata, markdown []byte, err error) {
