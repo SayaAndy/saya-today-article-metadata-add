@@ -60,9 +60,9 @@ func (sc *B2StorageClient) Scan() ([]string, error) {
 			continue
 		}
 
-		//if !strings.Contains(attrs.ContentType, "text/metadata") {
-		//	continue
-		//}
+		if !strings.HasSuffix(obj.Name(), ".md") {
+			continue
+		}
 
 		filePaths = append(filePaths, strings.TrimPrefix(obj.Name(), sc.prefix))
 	}
@@ -125,6 +125,7 @@ func (sc *B2StorageClient) WriteMetadata(path string, metadata *frontmatter.Meta
 			"thumbnail":                 metadata.Thumbnail,
 			"tags":                      strings.Join(metadata.Tags, ","),
 			"geolocation":               metadata.Geolocation,
+			"timezone":                  metadata.Timezone,
 			"metadata-last-update-sha1": oldAttrs.SHA1,
 		}}
 

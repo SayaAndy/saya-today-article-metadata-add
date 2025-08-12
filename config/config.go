@@ -10,8 +10,9 @@ import (
 )
 
 type Config struct {
-	LogLevel slog.Level    `json:"LogLevel" validate:"required"`
-	Storage  StorageConfig `json:"Storage" validate:"required"`
+	LogLevel          slog.Level    `json:"LogLevel" validate:"required"`
+	Storage           StorageConfig `json:"Storage" validate:"required"`
+	MaxConcurrentJobs int           `json:"MaxConcurrentJobs" validate:"required,min=1"`
 }
 
 type StorageConfig struct {

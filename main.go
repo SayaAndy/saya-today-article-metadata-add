@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/SayaAndy/saya-today-article-metadata-add/config"
 	"github.com/SayaAndy/saya-today-article-metadata-add/internal/frontmatter"
@@ -42,44 +43,55 @@ func main() {
 	}
 	generalLogger.Info("scanned files", slog.Int("file_count", len(files)))
 
-	for _, file := range files {
-		if !storageClient.FileHasChanged(file) {
-			generalLogger.Debug("skipped a file because it has not changed since last parse", slog.String("file", file))
-			continue
-		}
-		generalLogger.Debug("processing a file", slog.String("file", file))
+	semaphore := make(chan struct{}, cfg.MaxConcurrentJobs)
+	var wg sync.WaitGroup
+	wg.Add(len(files))
 
-		reader, sz, err := storageClient.GetReader(file)
-		if err != nil {
-			generalLogger.Warn("fail to get reader for a file", slog.String("file", file), slog.String("error", err.Error()))
-			continue
-		}
-		defer reader.Close()
+	for i, file := range files {
+		semaphore <- struct{}{}
+		go func(index int, inputName string) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+			if !storageClient.FileHasChanged(file) {
+				generalLogger.Debug("skipped a file because it has not changed since last parse", slog.String("file", file))
+				return
+			}
+			generalLogger.Debug("processing a file", slog.String("file", file))
 
-		content := make([]byte, sz)
-		ln, err := reader.Read(content)
-		if err != nil {
-			generalLogger.Warn("fail to read content from a file", slog.String("file", file), slog.String("error", err.Error()))
-			continue
-		}
-		generalLogger.Debug("read content from a file",
-			slog.String("file", file),
-			slog.Int64("expected_size", sz),
-			slog.Int("output_size", ln))
+			reader, sz, err := storageClient.GetReader(file)
+			if err != nil {
+				generalLogger.Warn("fail to get reader for a file", slog.String("file", file), slog.String("error", err.Error()))
+				return
+			}
+			defer reader.Close()
 
-		metadata, _, err := frontmatter.ParseFrontmatter(content)
-		if err != nil {
-			generalLogger.Warn("fail to parse frontmatter of a file", slog.String("file", file), slog.String("error", err.Error()))
-			continue
-		}
+			content := make([]byte, sz)
+			ln, err := reader.Read(content)
+			if err != nil {
+				generalLogger.Warn("fail to read content from a file", slog.String("file", file), slog.String("error", err.Error()))
+				return
+			}
+			generalLogger.Debug("read content from a file",
+				slog.String("file", file),
+				slog.Int64("expected_size", sz),
+				slog.Int("output_size", ln))
 
-		if metadata == nil {
-			generalLogger.Info("skip a file due to it not having metadata", slog.String("file", file))
-			continue
-		}
+			metadata, _, err := frontmatter.ParseFrontmatter(content)
+			if err != nil {
+				generalLogger.Warn("fail to parse frontmatter of a file", slog.String("file", file), slog.String("error", err.Error()))
+				return
+			}
 
-		if err = storageClient.WriteMetadata(file, metadata); err != nil {
-			generalLogger.Warn("fail to write metadata to a file", slog.String("file", file), slog.String("error", err.Error()))
-		}
+			if metadata == nil {
+				generalLogger.Info("skip a file due to it not having metadata", slog.String("file", file))
+				return
+			}
+
+			if err = storageClient.WriteMetadata(file, metadata); err != nil {
+				generalLogger.Warn("fail to write metadata to a file", slog.String("file", file), slog.String("error", err.Error()))
+			}
+		}(i, file)
 	}
+
+	wg.Wait()
 }

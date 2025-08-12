@@ -1,5 +1,6 @@
 {
     "LogLevel": "debug",
+    "MaxConcurrentJobs": 8,
     "Storage": {
         "Type": "b2",
         "Config": {
