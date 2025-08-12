@@ -125,7 +125,6 @@ func (sc *B2StorageClient) WriteMetadata(path string, metadata *frontmatter.Meta
 			"thumbnail":                 metadata.Thumbnail,
 			"tags":                      strings.Join(metadata.Tags, ","),
 			"geolocation":               metadata.Geolocation,
-			"timezone":                  metadata.Timezone,
 			"metadata-last-update-sha1": oldAttrs.SHA1,
 		}}
 
